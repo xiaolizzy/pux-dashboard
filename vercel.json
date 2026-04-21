@@ -8,5 +8,15 @@
       "path": "/api/cron-po-reminder",
       "schedule": "0 2 * * 4"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/forms/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
   ]
 }
