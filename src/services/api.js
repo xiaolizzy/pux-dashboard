@@ -21,6 +21,34 @@ const TABLES = {
   feedbackEntries: 'feedback_entries',
 }
 
+function isMissingFeedbackTable(error) {
+  const message = String(error?.message || '').toLowerCase()
+  return (
+    error?.status === 404 ||
+    message.includes('feedback_entries') ||
+    message.includes('relation') ||
+    message.includes('does not exist')
+  )
+}
+
+function parseFeedbackFromMilestone(item) {
+  const title = String(item?.title || '')
+  if (!title.startsWith('[反馈-')) return null
+
+  const source = title.includes('PO') ? 'po' : 'pux'
+  return {
+    id: item.id,
+    pux_id: item.pux_id,
+    source,
+    project: title.replace(/^\[反馈-(PUX|PO)\]\s*/, ''),
+    execution_process: source === 'pux' ? item.description : null,
+    collaboration_feedback: source === 'po' ? item.description : null,
+    conclusion: null,
+    created_by: null,
+    created_at: item.created_at,
+  }
+}
+
 export async function getPUXMembers() {
   if (!supabase) {
     return MOCK_PUX_MEMBERS
@@ -32,14 +60,41 @@ export async function getPUXMembers() {
       `
       *,
       stage_progress (*),
+      milestones (*),
+      feedback_entries (*)
+    `,
+    )
+    .order('created_at', { ascending: false })
+
+  if (!error) {
+    return data?.length ? data : MOCK_PUX_MEMBERS
+  }
+
+  if (!isMissingFeedbackTable(error)) {
+    return MOCK_PUX_MEMBERS
+  }
+
+  const fallbackResult = await supabase
+    .from(TABLES.puxMembers)
+    .select(
+      `
+      *,
+      stage_progress (*),
       milestones (*)
     `,
     )
     .order('created_at', { ascending: false })
 
-  if (error) return MOCK_PUX_MEMBERS
+  if (fallbackResult.error) return MOCK_PUX_MEMBERS
 
-  return data?.length ? data : MOCK_PUX_MEMBERS
+  const mergedData = (fallbackResult.data || []).map((item) => ({
+    ...item,
+    feedback_entries: (item.milestones || [])
+      .map(parseFeedbackFromMilestone)
+      .filter(Boolean),
+  }))
+
+  return mergedData.length ? mergedData : MOCK_PUX_MEMBERS
 }
 
 export async function createPUXMember(payload) {
@@ -146,10 +201,39 @@ export async function createFeedbackEntry(payload) {
     .select()
     .single()
 
-  if (error) {
+  if (!error) {
+    return data
+  }
+
+  if (!isMissingFeedbackTable(error)) {
     throw error
   }
 
-  return data
+  // Fallback: when feedback_entries table is missing, persist feedback as milestone.
+  const sourceLabel = payload.source === 'po' ? 'PO' : 'PUX'
+  const milestonePayload = {
+    pux_id: payload.pux_id,
+    title: `[反馈-${sourceLabel}] ${payload.project || payload.conclusion || '反馈更新'}`,
+    description:
+      payload.execution_process ||
+      payload.collaboration_feedback ||
+      payload.conclusion ||
+      '已提交反馈',
+    date: new Date().toISOString().slice(0, 10),
+  }
+
+  const fallback = await addMilestone(milestonePayload)
+  return {
+    id: fallback.id,
+    pux_id: payload.pux_id,
+    source: payload.source,
+    stage_number: payload.stage_number,
+    project: payload.project || null,
+    execution_process: payload.execution_process || null,
+    collaboration_feedback: payload.collaboration_feedback || null,
+    conclusion: payload.conclusion || null,
+    created_by: payload.created_by || null,
+    created_at: fallback.created_at,
+  }
 }
 

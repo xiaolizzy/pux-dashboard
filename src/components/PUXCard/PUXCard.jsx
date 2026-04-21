@@ -43,6 +43,28 @@ function normalizeProgress(progressList) {
   })
 }
 
+function getLatestFeedbackBySource(entries = []) {
+  const sorted = [...entries].sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime(),
+  )
+
+  return {
+    pux: sorted.find((item) => item.source === 'pux') || null,
+    po: sorted.find((item) => item.source === 'po') || null,
+  }
+}
+
+function getFeedbackSummary(entry) {
+  if (!entry) return '暂无反馈'
+  return (
+    entry.conclusion ||
+    entry.execution_process ||
+    entry.collaboration_feedback ||
+    entry.project ||
+    '已提交反馈'
+  )
+}
+
 export default function PUXCard({ member, onClick }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -57,9 +79,14 @@ export default function PUXCard({ member, onClick }) {
     stageProgress[0]
 
   const milestones = (member?.milestones || [])
+    .filter((item) => !String(item?.title || '').startsWith('[反馈-'))
     .slice()
     .sort((a, b) => new Date(b.date || b.created_at) - new Date(a.date || a.created_at))
     .slice(0, 2)
+  const latestFeedback = useMemo(
+    () => getLatestFeedbackBySource(member?.feedback_entries || []),
+    [member?.feedback_entries],
+  )
 
   const handleToggle = () => {
     setExpanded((prev) => !prev)
@@ -185,6 +212,20 @@ export default function PUXCard({ member, onClick }) {
         ) : (
           <p className="text-sm text-slate-400">暂无里程碑记录</p>
         )}
+      </div>
+
+      <div className="mt-4 rounded-lg border border-slate-700/80 bg-slate-900/50 p-3">
+        <p className="mb-2 text-xs uppercase tracking-wide text-slate-400">最新反馈</p>
+        <div className="space-y-2 text-xs text-slate-300">
+          <p>
+            <span className="text-cyan-300">PUX：</span>
+            {getFeedbackSummary(latestFeedback.pux)}
+          </p>
+          <p>
+            <span className="text-amber-300">PO：</span>
+            {getFeedbackSummary(latestFeedback.po)}
+          </p>
+        </div>
       </div>
 
       <AnimatePresence initial={false}>
