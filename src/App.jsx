@@ -13,12 +13,14 @@ function getPageType() {
 
 function App() {
   const pageType = getPageType()
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
+  const toasterPosition = isMobile ? 'top-center' : 'top-right'
 
   if (pageType === 'pux-form') {
     return (
       <div className="min-h-screen bg-background text-text-primary">
         <Toaster
-          position="top-right"
+          position={toasterPosition}
           toastOptions={{
             style: {
               background: '#1E293B',
@@ -36,7 +38,7 @@ function App() {
     return (
       <div className="min-h-screen bg-background text-text-primary">
         <Toaster
-          position="top-right"
+          position={toasterPosition}
           toastOptions={{
             style: {
               background: '#1E293B',
@@ -53,7 +55,7 @@ function App() {
   return (
     <div className="min-h-screen bg-background text-text-primary">
       <Toaster
-        position="top-right"
+        position={toasterPosition}
         toastOptions={{
           style: {
             background: '#1E293B',

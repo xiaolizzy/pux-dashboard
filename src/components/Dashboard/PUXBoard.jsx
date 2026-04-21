@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import PUXCard from '../PUXCard/PUXCard'
 import { getPUXMembers } from '../../services/api'
@@ -33,35 +33,28 @@ export default function PUXBoard() {
   const [poKeyword, setPoKeyword] = useState('')
   const [nameKeyword, setNameKeyword] = useState('')
 
-  useEffect(() => {
-    let mounted = true
+  const fetchMembers = useCallback(async ({ showSuccessToast = false } = {}) => {
+    setLoading(true)
+    setError('')
 
-    async function fetchMembers() {
-      setLoading(true)
-      setError('')
-
-      try {
-        const data = await getPUXMembers()
-        if (!mounted) return
-
-        setMembers(data || [])
+    try {
+      const data = await getPUXMembers()
+      setMembers(data || [])
+      if (showSuccessToast) {
         toast.success(`已加载 ${data?.length || 0} 位成员`)
-      } catch (err) {
-        if (!mounted) return
-        const message = err?.message || '加载PUX成员失败'
-        setError(message)
-        toast.error(message)
-      } finally {
-        if (mounted) setLoading(false)
       }
-    }
-
-    fetchMembers()
-
-    return () => {
-      mounted = false
+    } catch (err) {
+      const message = err?.message || '加载PUX成员失败'
+      setError(message)
+      toast.error(message)
+    } finally {
+      setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    fetchMembers().catch(() => {})
+  }, [fetchMembers])
 
   const productLineOptions = useMemo(() => {
     const lines = Array.from(
@@ -132,7 +125,14 @@ export default function PUXBoard() {
   if (error) {
     return (
       <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-8 text-red-200">
-        加载失败: {error}
+        <p>加载失败: {error}</p>
+        <button
+          type="button"
+          onClick={() => fetchMembers({ showSuccessToast: true })}
+          className="mt-3 rounded-lg border border-red-300/50 px-3 py-1.5 text-sm text-red-100 transition hover:bg-red-400/10"
+        >
+          重试加载
+        </button>
       </div>
     )
   }
@@ -140,7 +140,7 @@ export default function PUXBoard() {
   return (
     <section className="space-y-6">
       <div className="rounded-2xl border border-slate-700 bg-slate-800 p-4 md:p-5">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
           <select
             value={selectedProductLine}
             onChange={(event) => setSelectedProductLine(event.target.value)}
@@ -201,6 +201,14 @@ export default function PUXBoard() {
               </button>
             ))}
           </div>
+
+          <button
+            type="button"
+            onClick={() => fetchMembers({ showSuccessToast: true })}
+            className="rounded-lg border border-cyan-400/40 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-200 transition hover:bg-cyan-500/20"
+          >
+            刷新数据
+          </button>
         </div>
       </div>
 
