@@ -184,6 +184,27 @@ export async function addMilestone(payload) {
     .single()
 
   if (error) {
+    const message = String(error?.message || '').toLowerCase()
+    const missingDateColumn =
+      message.includes("could not find the 'date' column") ||
+      (message.includes('column') && message.includes('date'))
+
+    // Backward compatibility: some existing milestones tables don't have `date`.
+    if (missingDateColumn && Object.prototype.hasOwnProperty.call(payload, 'date')) {
+      const { date, ...payloadWithoutDate } = payload
+      const retry = await supabase
+        .from(TABLES.milestones)
+        .insert(payloadWithoutDate)
+        .select()
+        .single()
+
+      if (!retry.error) {
+        return retry.data
+      }
+    }
+  }
+
+  if (error) {
     throw error
   }
 
