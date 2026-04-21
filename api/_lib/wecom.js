@@ -46,3 +46,18 @@ export async function sendWecomMarkdown({ title, audience, formUrl }) {
 
   return response.json()
 }
+
+export function buildWecomPayload({ title, audience, formUrl }) {
+  const payload = {
+    msgtype: 'markdown',
+    markdown: {
+      content: buildMarkdown(title, audience, formUrl),
+    },
+  }
+
+  if (mentionedMobileList.length) {
+    payload.markdown.mentioned_mobile_list = mentionedMobileList
+  }
+
+  return payload
+}

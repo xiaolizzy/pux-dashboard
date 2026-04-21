@@ -1,18 +1,38 @@
-import { sendWecomMarkdown } from './_lib/wecom.js'
+import { buildWecomPayload, sendWecomMarkdown } from './_lib/wecom.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ ok: false, error: 'Method Not Allowed' })
   }
 
+  const isCronRequest = Boolean(req.headers['x-vercel-cron'])
+  const forceSend = String(req.query?.send || '') === '1'
+  const dryRun = !isCronRequest && !forceSend
+
   try {
-    const result = await sendWecomMarkdown({
+    const messageInput = {
       title: 'PUX转型周反馈提醒',
       audience: 'PUX同学',
       formUrl: process.env.PUX_FEEDBACK_FORM_URL,
-    })
+    }
 
-    return res.status(200).json({ ok: true, result })
+    if (dryRun) {
+      return res.status(200).json({
+        ok: true,
+        dry_run: true,
+        message: 'Dry run only; add ?send=1 to send manually.',
+        payload_preview: buildWecomPayload(messageInput),
+      })
+    }
+
+    const result = await sendWecomMarkdown(messageInput)
+
+    return res.status(200).json({
+      ok: true,
+      dry_run: false,
+      sent_by: isCronRequest ? 'vercel-cron' : 'manual',
+      result,
+    })
   } catch (error) {
     return res.status(500).json({ ok: false, error: error.message })
   }
