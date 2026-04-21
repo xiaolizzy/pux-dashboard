@@ -9,7 +9,7 @@ function buildMarkdown(title, audience, formUrl) {
     `# ${title}\n` +
     `> 请相关同学在今天内完成填写\n\n` +
     `- 对象：${audience}\n` +
-    `- 入口：${formUrl}\n` +
+    `- 入口：[点击填写反馈](${formUrl})\n` +
     `- 说明：本提醒由系统定时发送，若已提交可忽略。`
   )
 }
